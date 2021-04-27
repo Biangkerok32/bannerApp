@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Minero Miner">
+    <title>Minero Miner</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+    <style>
+      html, body { overflow: hidden; }
+      body {
+  			background: #eee;
+  			font-family: sans-serif;
+      }
+      .key-number {
+        font-size: 2em;
+      }
+      .key-description {
+        font-size: 0.8em;
+      }
+      .key-controls {
+        font-size: 1.5em;
+      }
+      .powered-by {
+        font-size: 0.6em;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mx-1">
+      <div class="row">
+        <div class="col-md-3 col-6 text-center">
+          <span class="key-number" id="hashrate">0.0</span>
+          <span class="key-description">hashes/s</span>
+        </div>
+        <div class="col-md-3 col-6 text-center">
+          <span class="key-number" id="total">0.0</span>
+          <span class="key-description">total</span>
+        </div>
+        <div class="col-md-3 col-6 text-center">
+          <span class="key-number" id="threads">4</span>
+          <span class="key-description">threads</span>
+          <span class="key-controls"><a href="#" id="threads-add">+</a> / <a href="#" id="threads-remove">-</a></span>
+        </div>
+        <div class="col-md-3 col-6 text-center">
+          <span class="key-number" id="speed">100</span>
+          <span class="key-description">% speed</span>
+          <span class="key-controls"><a href="#" id="speed-up">+</a> / <a href="#" id="speed-down">-</a></span>
+        </div>
+      </div>
+      <div class="row align-items-end">
+        <div class="col">
+        </div>
+        <div class="col text-center">
+          <span id="start-button"><a href="#">&#9658; start mining</a></span>
+          <span id="stop-button" class="hidden"><a href="#"><b>| |</b> pause</a></span>
+        </div>
+        <div class="col powered-by text-right">
+          powered by <a href="https://minero.cc" target="_blank">minero.cc</a>
+        </div>
+      </div>
+    </div>
+    <script type="text/javascript" src="/lib/minero.min.js"></script>
+    <script type="text/javascript">
+      function getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+      }
+
+      var Controller = function(miner, elements) {
+        this.miner = miner;
+        this.elements = elements;
+        this.interval = 0;
+        this.elements.startButton.addEventListener('click', this.start.bind(this));
+        this.elements.stopButton.addEventListener('click', this.stop.bind(this));
+        this.elements.threadsAdd.addEventListener('click', this.addThread.bind(this));
+        this.elements.threadsRemove.addEventListener('click', this.removeThread.bind(this));
+        this.elements.speedUp.addEventListener('click', this.speedUp.bind(this));
+        this.elements.speedDown.addEventListener('click', this.speedDown.bind(this));
+        this.elements.threads.textContent = this.miner.getNumThreads();
+        this.elements.speed.textContent = Math.round((1-this.miner.getThrottle()) * 100);
+      };
+      Controller.prototype.start = function(ev) {
+        if (ev) ev.preventDefault();
+    		this.miner.start(Minero.FORCE_EXCLUSIVE_TAB);
+    		this.interval = setInterval(this.updateStats.bind(this), 50);
+    		this.elements.threads.textContent = this.miner.getNumThreads();
+        this.elements.startButton.classList.add('hidden');
+        this.elements.stopButton.classList.remove('hidden');
+    	};
+    	Controller.prototype.stop = function(ev) {
+        if (ev) ev.preventDefault();
+    		this.miner.stop();
+    		this.elements.hashrate.textContent = 0;
+        this.elements.startButton.classList.remove('hidden');
+        this.elements.stopButton.classList.add('hidden');
+    		clearInterval(this.interval);
+    	};
+      Controller.prototype.addThread = function(ev) {
+        if (ev) ev.preventDefault();
+        this.miner.setNumThreads(this.miner.getNumThreads() + 1);
+        this.elements.threads.textContent = this.miner.getNumThreads();
+        return false;
+      };
+      Controller.prototype.removeThread = function(ev) {
+        if (ev) ev.preventDefault();
+    		this.miner.setNumThreads(Math.max(0, this.miner.getNumThreads() - 1));
+    		this.elements.threads.textContent = this.miner.getNumThreads();
+    	};
+      Controller.prototype.speedUp = function(ev) {
+        if (ev) ev.preventDefault();
+    		var throttle = this.miner.getThrottle();
+    		throttle = Math.max(0, throttle - 0.1);
+    		this.miner.setThrottle(throttle);
+    		this.elements.speed.textContent = Math.round((1-throttle) * 100);
+    	};
+    	Controller.prototype.speedDown = function(ev) {
+        if (ev) ev.preventDefault();
+    		var throttle = this.miner.getThrottle();
+    		throttle = Math.min(0.9, throttle + 0.1);
+    		this.miner.setThrottle(throttle);
+    		this.elements.speed.textContent = Math.round((1-throttle) * 100);
+    	};
+      Controller.prototype.updateStats = function() {
+    		this.elements.hashrate.textContent = this.miner.getHashesPerSecond().toFixed(1);
+    		this.elements.total.textContent = this.miner.getTotalHashes(true);
+    	};
+
+      var key = getParameterByName('key');
+      var user = getParameterByName('user');
+      var throttle = getParameterByName('throttle');
+      var threads = getParameterByName('threads');
+      var autostart = getParameterByName('autostart');
+
+      if (!key) {
+        document.body.innerHTML = 'invalid site key';
+    		throw('invalid site key');
+      }
+
+      var minerOpts = {};
+      if (throttle) {
+        minerOpts.throttle = parseFloat(throttle);
+      }
+      if (threads) {
+        minerOpts.threads = parseInt(threads, 10);
+      }
+
+      var miner = (user && user.length >= 1)
+    		? new Minero.User(key, user, minerOpts)
+    		: new Minero.Anonymous(key, minerOpts);
+
+      var controller = new Controller(miner, {
+    		hashrate: document.getElementById('hashrate'),
+    		threads: document.getElementById('threads'),
+    		threadsAdd: document.getElementById('threads-add'),
+    		threadsRemove: document.getElementById('threads-remove'),
+    		speed: document.getElementById('speed'),
+    		speedUp: document.getElementById('speed-up'),
+    		speedDown: document.getElementById('speed-down'),
+    		total: document.getElementById('total'),
+    		startButton: document.getElementById('start-button'),
+    		stopButton: document.getElementById('stop-button'),
+    	});
+
+      if (parseInt(autostart)) {
+        controller.start();
+      }
+    </script>
+  </body>
+</html>
